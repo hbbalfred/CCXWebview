@@ -1,5 +1,6 @@
 /****************************************************************************
-Copyright (c) 2010-2011 cocos2d-x.org
+Copyright (c) 2010-2012 cocos2d-x.org
+Copyright (c) 2013-2014 Chukong Technologies Inc.
 
 http://www.cocos2d-x.org
 
@@ -25,17 +26,29 @@ package org.cocos2dx.lib;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Locale;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.lang.Runnable;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.os.Build;
-import android.os.Environment;
+import android.preference.PreferenceManager.OnActivityResultListener;
+import android.util.DisplayMetrics;
+import android.view.Display;
+import android.view.WindowManager;
 
 public class Cocos2dxHelper {
 	// ===========================================================
 	// Constants
 	// ===========================================================
+	private static final String PREFS_NAME = "Cocos2dxPrefsFile";
+	private static final int RUNNABLES_PER_FRAME = 5;
 
 	// ===========================================================
 	// Fields
@@ -46,29 +59,86 @@ public class Cocos2dxHelper {
 	private static AssetManager sAssetManager;
 	private static Cocos2dxAccelerometer sCocos2dxAccelerometer;
 	private static boolean sAccelerometerEnabled;
+	private static boolean sActivityVisible;
 	private static String sPackageName;
-
+	private static String sFileDirectory;
+	private static Activity sActivity = null;
 	private static Cocos2dxHelperListener sCocos2dxHelperListener;
+	private static Set<OnActivityResultListener> onActivityResultListeners = new LinkedHashSet<OnActivityResultListener>();
+
+    /**
+     * Optional meta-that can be in the manifest for this component, specifying
+     * the name of the native shared library to load.  If not specified,
+     * "main" is used.
+     */
+    private static final String META_DATA_LIB_NAME = "android.app.lib_name";
+    private static final String DEFAULT_LIB_NAME = "main";
 
 	// ===========================================================
 	// Constructors
 	// ===========================================================
 
-	public static void init(final Context pContext, final Cocos2dxHelperListener pCocos2dxHelperListener) {
-		final ApplicationInfo applicationInfo = pContext.getApplicationInfo();
-
-		Cocos2dxHelper.sCocos2dxHelperListener = pCocos2dxHelperListener;
-
-		Cocos2dxHelper.sPackageName = applicationInfo.packageName;
-		Cocos2dxHelper.nativeSetApkPath(applicationInfo.sourceDir);
-		Cocos2dxHelper.nativeSetExternalAssetPath(Cocos2dxHelper.getAbsolutePathOnExternalStorage(applicationInfo, "assets/"));
-
-		Cocos2dxHelper.sCocos2dxAccelerometer = new Cocos2dxAccelerometer(pContext);
-		Cocos2dxHelper.sCocos2dMusic = new Cocos2dxMusic(pContext);
-		Cocos2dxHelper.sCocos2dSound = new Cocos2dxSound(pContext);
-		Cocos2dxHelper.sAssetManager = pContext.getAssets();
-		Cocos2dxBitmap.setContext(pContext);
+	public static void runOnGLThread(final Runnable r) {
+		((Cocos2dxActivity)sActivity).runOnGLThread(r);
 	}
+
+	private static boolean sInited = false;
+	public static void init(final Activity activity) {
+	    if (!sInited) {
+    		final ApplicationInfo applicationInfo = activity.getApplicationInfo();
+    		
+            Cocos2dxHelper.sCocos2dxHelperListener = (Cocos2dxHelperListener)activity;
+                
+            try {
+            // Get the lib_name from AndroidManifest.xml metadata
+                ActivityInfo ai =
+                    activity.getPackageManager().getActivityInfo(activity.getIntent().getComponent(), PackageManager.GET_META_DATA);
+                if (null != ai.metaData) {
+                    String lib_name = ai.metaData.getString(META_DATA_LIB_NAME);
+                    if (null != lib_name) {
+                        System.loadLibrary(lib_name);
+                    } else {
+                        System.loadLibrary(DEFAULT_LIB_NAME);
+                    }
+                }
+            } catch (PackageManager.NameNotFoundException e) {
+                throw new RuntimeException("Error getting activity info", e);
+            }
+    
+    		Cocos2dxHelper.sPackageName = applicationInfo.packageName;
+    		Cocos2dxHelper.sFileDirectory = activity.getFilesDir().getAbsolutePath();
+            Cocos2dxHelper.nativeSetApkPath(applicationInfo.sourceDir);
+    
+    		Cocos2dxHelper.sCocos2dxAccelerometer = new Cocos2dxAccelerometer(activity);
+    		Cocos2dxHelper.sCocos2dMusic = new Cocos2dxMusic(activity);
+    		Cocos2dxHelper.sCocos2dSound = new Cocos2dxSound(activity);
+    		Cocos2dxHelper.sAssetManager = activity.getAssets();
+    		Cocos2dxHelper.nativeSetContext((Context)activity, Cocos2dxHelper.sAssetManager);
+    
+            Cocos2dxBitmap.setContext(activity);
+            Cocos2dxETCLoader.setContext(activity);
+            sActivity = activity;
+
+            sInited = true;
+
+	    }
+	}
+	
+    public static Activity getActivity() {
+        return sActivity;
+    }
+    
+    public static void addOnActivityResultListener(OnActivityResultListener listener) {
+        onActivityResultListeners.add(listener);
+    }
+    
+    public static Set<OnActivityResultListener> getOnActivityResultListeners() {
+        return onActivityResultListeners;
+    }
+    
+    public static boolean isActivityVisible(){
+    	return sActivityVisible;
+    }
 
 	// ===========================================================
 	// Getter & Setter
@@ -84,12 +154,16 @@ public class Cocos2dxHelper {
 
 	private static native void nativeSetApkPath(final String pApkPath);
 
-	private static native void nativeSetExternalAssetPath(final String pExternalAssetPath);
-
 	private static native void nativeSetEditTextDialogResult(final byte[] pBytes);
+
+	private static native void nativeSetContext(final Context pContext, final AssetManager pAssetManager);
 
 	public static String getCocos2dxPackageName() {
 		return Cocos2dxHelper.sPackageName;
+	}
+
+	public static String getCocos2dxWritablePath() {
+		return Cocos2dxHelper.sFileDirectory;
 	}
 
 	public static String getCurrentLanguage() {
@@ -159,8 +233,8 @@ public class Cocos2dxHelper {
 		Cocos2dxHelper.sCocos2dSound.preloadEffect(path);
 	}
 
-	public static int playEffect(final String path, final boolean isLoop) {
-		return Cocos2dxHelper.sCocos2dSound.playEffect(path, isLoop);
+	public static int playEffect(final String path, final boolean isLoop, final float pitch, final float pan, final float gain) {
+		return Cocos2dxHelper.sCocos2dSound.playEffect(path, isLoop, pitch, pan, gain);
 	}
 
 	public static void resumeEffect(final int soundId) {
@@ -205,17 +279,29 @@ public class Cocos2dxHelper {
 	}
 
 	public static void onResume() {
+		sActivityVisible = true;
 		if (Cocos2dxHelper.sAccelerometerEnabled) {
 			Cocos2dxHelper.sCocos2dxAccelerometer.enable();
 		}
 	}
 
 	public static void onPause() {
+		sActivityVisible = false;
 		if (Cocos2dxHelper.sAccelerometerEnabled) {
 			Cocos2dxHelper.sCocos2dxAccelerometer.disable();
 		}
 	}
 
+	public static void onEnterBackground() {
+		sCocos2dSound.onEnterBackground();
+		sCocos2dMusic.onEnterBackground();
+	}
+	
+	public static void onEnterForeground() {
+		sCocos2dSound.onEnterForeground();
+		sCocos2dMusic.onEnterForeground();
+	}
+	
 	public static void terminateProcess() {
 		android.os.Process.killProcess(android.os.Process.myPid());
 	}
@@ -243,10 +329,91 @@ public class Cocos2dxHelper {
 		}
 	}
 
-	private static String getAbsolutePathOnExternalStorage(final ApplicationInfo pApplicationInfo, final String pPath) {
-		return Environment.getExternalStorageDirectory() + "/Android/data/" + pApplicationInfo.packageName + "/files/" + pPath;
-	}
-
+    public static int getDPI()
+    {
+		if (sActivity != null)
+		{
+			DisplayMetrics metrics = new DisplayMetrics();
+			WindowManager wm = sActivity.getWindowManager();
+			if (wm != null)
+			{
+				Display d = wm.getDefaultDisplay();
+				if (d != null)
+				{
+					d.getMetrics(metrics);
+					return (int)(metrics.density*160.0f);
+				}
+			}
+		}
+		return -1;
+    }
+    
+    // ===========================================================
+ 	// Functions for CCUserDefault
+ 	// ===========================================================
+    
+    public static boolean getBoolForKey(String key, boolean defaultValue) {
+    	SharedPreferences settings = sActivity.getSharedPreferences(Cocos2dxHelper.PREFS_NAME, 0);
+    	return settings.getBoolean(key, defaultValue);
+    }
+    
+    public static int getIntegerForKey(String key, int defaultValue) {
+    	SharedPreferences settings = sActivity.getSharedPreferences(Cocos2dxHelper.PREFS_NAME, 0);
+    	return settings.getInt(key, defaultValue);
+    }
+    
+    public static float getFloatForKey(String key, float defaultValue) {
+    	SharedPreferences settings = sActivity.getSharedPreferences(Cocos2dxHelper.PREFS_NAME, 0);
+    	return settings.getFloat(key, defaultValue);
+    }
+    
+    public static double getDoubleForKey(String key, double defaultValue) {
+    	// SharedPreferences doesn't support saving double value
+    	SharedPreferences settings = sActivity.getSharedPreferences(Cocos2dxHelper.PREFS_NAME, 0);
+    	return settings.getFloat(key, (float)defaultValue);
+    }
+    
+    public static String getStringForKey(String key, String defaultValue) {
+    	SharedPreferences settings = sActivity.getSharedPreferences(Cocos2dxHelper.PREFS_NAME, 0);
+    	return settings.getString(key, defaultValue);
+    }
+    
+    public static void setBoolForKey(String key, boolean value) {
+    	SharedPreferences settings = sActivity.getSharedPreferences(Cocos2dxHelper.PREFS_NAME, 0);
+    	SharedPreferences.Editor editor = settings.edit();
+    	editor.putBoolean(key, value);
+    	editor.commit();
+    }
+    
+    public static void setIntegerForKey(String key, int value) {
+    	SharedPreferences settings = sActivity.getSharedPreferences(Cocos2dxHelper.PREFS_NAME, 0);
+    	SharedPreferences.Editor editor = settings.edit();
+    	editor.putInt(key, value);
+    	editor.commit();
+    }
+    
+    public static void setFloatForKey(String key, float value) {
+    	SharedPreferences settings = sActivity.getSharedPreferences(Cocos2dxHelper.PREFS_NAME, 0);
+    	SharedPreferences.Editor editor = settings.edit();
+    	editor.putFloat(key, value);
+    	editor.commit();
+    }
+    
+    public static void setDoubleForKey(String key, double value) {
+    	// SharedPreferences doesn't support recording double value
+    	SharedPreferences settings = sActivity.getSharedPreferences(Cocos2dxHelper.PREFS_NAME, 0);
+    	SharedPreferences.Editor editor = settings.edit();
+    	editor.putFloat(key, (float)value);
+    	editor.commit();
+    }
+    
+    public static void setStringForKey(String key, String value) {
+    	SharedPreferences settings = sActivity.getSharedPreferences(Cocos2dxHelper.PREFS_NAME, 0);
+    	SharedPreferences.Editor editor = settings.edit();
+    	editor.putString(key, value);
+    	editor.commit();
+    }
+	
 	// ===========================================================
 	// Inner and Anonymous Classes
 	// ===========================================================

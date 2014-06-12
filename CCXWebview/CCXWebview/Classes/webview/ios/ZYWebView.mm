@@ -30,7 +30,12 @@ bool ZYWebView::init()
 void ZYWebView::showWebView(const char* url, float x, float y, float width, float height)
 {
     m_webViewiOS = [[ZYWebView_iOS alloc] init];
-    [m_webViewiOS showWebView_x:x y:y width:width height:height];
+	
+    // get the eaglview instance here and pass it, because of
+    // there is a problem of 'Member access into incomplete type'
+    // when getEAGLView in ZYWebView_iOS
+	auto eaglview = (CCEAGLView*)cocos2d::Director::getInstance()->getOpenGLView()->getEAGLView();
+    [m_webViewiOS showWebView_x:x y:y width:width height:height eaglview:eaglview];
     
     this->updateURL(url);
 }

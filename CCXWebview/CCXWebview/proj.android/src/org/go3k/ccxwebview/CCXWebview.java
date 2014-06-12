@@ -23,49 +23,41 @@ THE SOFTWARE.
 ****************************************************************************/
 package org.go3k.ccxwebview;
 
-import org.cocos2dx.lib.Cocos2dxActivity;
-
 import android.app.Activity;
-import android.os.Bundle;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
+import android.util.Log;
+import org.cocos2dx.lib.Cocos2dxHelper;
 
-public class CCXWebview extends Cocos2dxActivity{
+public class CCXWebview {
+	private static LinearLayout m_webLayout;
+	private static WebView m_webView;
+	
+	
+    public static void init() {
+        Cocos2dxHelper.getActivity().runOnUiThread(new Runnable(){
+            public void run(){
+                m_webLayout = new LinearLayout(Cocos2dxHelper.getActivity());        
+                Cocos2dxHelper.getActivity().addContentView(m_webLayout,
+                    new LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.FILL_PARENT));
+            }
+        });
+    }
 
-	public static Activity actInstance;
-	private LinearLayout m_webLayout;
-	private WebView m_webView;
-	
-	protected void onCreate(Bundle savedInstanceState){
-		super.onCreate(savedInstanceState);
-		
-		actInstance = this;
-		//web layout 
-		m_webLayout = new LinearLayout(this);
-		actInstance.addContentView(m_webLayout, 
-				new LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.FILL_PARENT));
-	}
-	
-    static {
-         System.loadLibrary("game");
-    }
-    
-    public static Object getJavaActivity() {
-        return actInstance;
-    }
-    
     //WebView
-    public void displayWebView(final int x, final int y, final int width, final int height) {
-//    	Log.e("Vincent", "showWebView");
-    	
-    	this.runOnUiThread(new Runnable() {
+    public static void displayWebView(final int x, final int y, final int width, final int height) {
+    	Cocos2dxHelper.getActivity().runOnUiThread(new Runnable() {
             public void run() {
-//            	LinearLayout layout = new LinearLayout(actInstance);
-//            	actInstance.addContentView(layout, new LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.FILL_PARENT));
-            	m_webView = new WebView(actInstance);
+
+                if (m_webLayout == null) {
+                    Log.e("CCXWebview", "Invalid layout to display webview");
+                    return;
+                }
+
+            	m_webView = new WebView(Cocos2dxHelper.getActivity());
             	m_webLayout.addView(m_webView);
             	
             	LinearLayout.LayoutParams linearParams = (LinearLayout.LayoutParams) m_webView.getLayoutParams();
@@ -93,23 +85,28 @@ public class CCXWebview extends Cocos2dxActivity{
         });
     }
     
-    public void updateURL(final String url) {
-//    	Log.e("Vincent", "updateURL"+url);
-    	
-    	this.runOnUiThread(new Runnable() {
+    public static void updateURL(final String url) {
+    	Cocos2dxHelper.getActivity().runOnUiThread(new Runnable() {
             public void run() {
+                if (m_webView == null) {
+                    Log.e("CCXWebview", "Invalid webview to update URL : " + url);
+                    return;
+                }
             	m_webView.loadUrl(url);
             }
         });
     }
     
-    public void removeWebView() {
-//    	Log.e("Vincent", "removeWebView");
-
-    	this.runOnUiThread(new Runnable() {
+    public static void removeWebView() {
+    	Cocos2dxHelper.getActivity().runOnUiThread(new Runnable() {
             public void run() {
+                if (m_webLayout == null || m_webView == null) {
+                    Log.e("CCXWebview", "Invalid webview to remove");
+                    return;
+                }
             	m_webLayout.removeView(m_webView);
             	m_webView.destroy();
+                m_webView = null;
             }
         });
     }

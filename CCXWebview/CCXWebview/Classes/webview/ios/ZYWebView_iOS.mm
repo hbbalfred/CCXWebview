@@ -7,19 +7,19 @@
 //
 
 #import "ZYWebView_iOS.h"
-#import "EAGLView.h"
+#import "CCEAGLView.h"
 
 @implementation ZYWebView_iOS
 
 
-- (void)showWebView_x:(float)x y:(float)y width:(float) widht height:(float)height
+- (void)showWebView_x:(float)x y:(float)y width:(float)widht height:(float)height eaglview:(CCEAGLView *)eaglview
 {
     if (!m_webview)
     {
         m_webview = [[UIWebView alloc] initWithFrame:CGRectMake(x, y, widht , height)];
         [m_webview setDelegate:self];
 
-        [[EAGLView sharedEGLView] addSubview:m_webview];
+        [eaglview addSubview:m_webview];
         [m_webview release];
         
         m_webview.backgroundColor = [UIColor clearColor];

@@ -28,6 +28,7 @@ import javax.microedition.khronos.opengles.GL10;
 
 import android.opengl.GLSurfaceView;
 
+import org.cocos2dx.lib.Cocos2dxHelper;
 public class Cocos2dxRenderer implements GLSurfaceView.Renderer {
 	// ===========================================================
 	// Constants
@@ -75,27 +76,37 @@ public class Cocos2dxRenderer implements GLSurfaceView.Renderer {
 
 	@Override
 	public void onSurfaceChanged(final GL10 pGL10, final int pWidth, final int pHeight) {
+		Cocos2dxRenderer.nativeOnSurfaceChanged(pWidth, pHeight);
 	}
 
 	@Override
 	public void onDrawFrame(final GL10 gl) {
+		/*
+		 * FPS controlling algorithm is not accurate, and it will slow down FPS
+		 * on some devices. So comment FPS controlling code.
+		 */
+		
+		/*
 		final long nowInNanoSeconds = System.nanoTime();
 		final long interval = nowInNanoSeconds - this.mLastTickInNanoSeconds;
+		*/
 
 		// should render a frame when onDrawFrame() is called or there is a
 		// "ghost"
 		Cocos2dxRenderer.nativeRender();
 
+		/*
 		// fps controlling
 		if (interval < Cocos2dxRenderer.sAnimationInterval) {
 			try {
 				// because we render it before, so we should sleep twice time interval
-				Thread.sleep((Cocos2dxRenderer.sAnimationInterval - interval) * 2 / Cocos2dxRenderer.NANOSECONDSPERMICROSECOND);
+				Thread.sleep((Cocos2dxRenderer.sAnimationInterval - interval) / Cocos2dxRenderer.NANOSECONDSPERMICROSECOND);
 			} catch (final Exception e) {
 			}
 		}
 
 		this.mLastTickInNanoSeconds = nowInNanoSeconds;
+		*/
 	}
 
 	// ===========================================================
@@ -109,6 +120,7 @@ public class Cocos2dxRenderer implements GLSurfaceView.Renderer {
 	private static native boolean nativeKeyDown(final int pKeyCode);
 	private static native void nativeRender();
 	private static native void nativeInit(final int pWidth, final int pHeight);
+	private static native void nativeOnSurfaceChanged(final int pWidth, final int pHeight);
 	private static native void nativeOnPause();
 	private static native void nativeOnResume();
 
@@ -133,10 +145,12 @@ public class Cocos2dxRenderer implements GLSurfaceView.Renderer {
 	}
 
 	public void handleOnPause() {
+		Cocos2dxHelper.onEnterBackground();
 		Cocos2dxRenderer.nativeOnPause();
 	}
 
 	public void handleOnResume() {
+		Cocos2dxHelper.onEnterForeground();
 		Cocos2dxRenderer.nativeOnResume();
 	}
 

@@ -63,20 +63,17 @@ public class Cocos2dxGLSurfaceView extends GLSurfaceView {
 	public Cocos2dxGLSurfaceView(final Context context) {
 		super(context);
 
-		this.setEGLContextClientVersion(2);
-
 		this.initView();
 	}
 
 	public Cocos2dxGLSurfaceView(final Context context, final AttributeSet attrs) {
 		super(context, attrs);
-
-		this.setEGLContextClientVersion(2);
-
+		
 		this.initView();
 	}
 
 	protected void initView() {
+		this.setEGLContextClientVersion(2);
 		this.setFocusableInTouchMode(true);
 
 		Cocos2dxGLSurfaceView.mCocos2dxGLSurfaceView = this;
@@ -105,6 +102,7 @@ public class Cocos2dxGLSurfaceView extends GLSurfaceView {
 							Cocos2dxGLSurfaceView.this.mCocos2dxEditText.removeTextChangedListener(Cocos2dxGLSurfaceView.sCocos2dxTextInputWraper);
 							final InputMethodManager imm = (InputMethodManager) Cocos2dxGLSurfaceView.mCocos2dxGLSurfaceView.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
 							imm.hideSoftInputFromWindow(Cocos2dxGLSurfaceView.this.mCocos2dxEditText.getWindowToken(), 0);
+							Cocos2dxGLSurfaceView.this.requestFocus();
 							Log.d("GLSurfaceView", "HideSoftInput");
 						}
 						break;
@@ -116,6 +114,20 @@ public class Cocos2dxGLSurfaceView extends GLSurfaceView {
 	// ===========================================================
 	// Getter & Setter
 	// ===========================================================
+
+
+       public static Cocos2dxGLSurfaceView getInstance() {
+	   return mCocos2dxGLSurfaceView;
+       }
+
+       public static void queueAccelerometer(final float x, final float y, final float z, final long timestamp) {	
+	   mCocos2dxGLSurfaceView.queueEvent(new Runnable() {
+		@Override
+		    public void run() {
+			    Cocos2dxAccelerometer.onSensorChanged(x, y, z, timestamp);
+		}
+	    });
+	}
 
 	public void setCocos2dxRenderer(final Cocos2dxRenderer renderer) {
 		this.mCocos2dxRenderer = renderer;
@@ -164,7 +176,7 @@ public class Cocos2dxGLSurfaceView extends GLSurfaceView {
 			}
 		});
 
-		super.onPause();
+		//super.onPause();
 	}
 
 	@Override
@@ -183,7 +195,7 @@ public class Cocos2dxGLSurfaceView extends GLSurfaceView {
 
 		switch (pMotionEvent.getAction() & MotionEvent.ACTION_MASK) {
 			case MotionEvent.ACTION_POINTER_DOWN:
-				final int indexPointerDown = pMotionEvent.getAction() >> MotionEvent.ACTION_POINTER_ID_SHIFT;
+				final int indexPointerDown = pMotionEvent.getAction() >> MotionEvent.ACTION_POINTER_INDEX_SHIFT;
 				final int idPointerDown = pMotionEvent.getPointerId(indexPointerDown);
 				final float xPointerDown = pMotionEvent.getX(indexPointerDown);
 				final float yPointerDown = pMotionEvent.getY(indexPointerDown);
@@ -220,7 +232,7 @@ public class Cocos2dxGLSurfaceView extends GLSurfaceView {
 				break;
 
 			case MotionEvent.ACTION_POINTER_UP:
-				final int indexPointUp = pMotionEvent.getAction() >> MotionEvent.ACTION_POINTER_ID_SHIFT;
+				final int indexPointUp = pMotionEvent.getAction() >> MotionEvent.ACTION_POINTER_INDEX_SHIFT;
 				final int idPointerUp = pMotionEvent.getPointerId(indexPointUp);
 				final float xPointerUp = pMotionEvent.getX(indexPointUp);
 				final float yPointerUp = pMotionEvent.getY(indexPointUp);
@@ -281,6 +293,13 @@ public class Cocos2dxGLSurfaceView extends GLSurfaceView {
 		switch (pKeyCode) {
 			case KeyEvent.KEYCODE_BACK:
 			case KeyEvent.KEYCODE_MENU:
+			case KeyEvent.KEYCODE_DPAD_LEFT:
+			case KeyEvent.KEYCODE_DPAD_RIGHT:
+			case KeyEvent.KEYCODE_DPAD_UP:
+			case KeyEvent.KEYCODE_DPAD_DOWN:
+			case KeyEvent.KEYCODE_ENTER:
+			case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+			case KeyEvent.KEYCODE_DPAD_CENTER:
 				this.queueEvent(new Runnable() {
 					@Override
 					public void run() {
@@ -339,7 +358,7 @@ public class Cocos2dxGLSurfaceView extends GLSurfaceView {
 		final int actionCode = action & MotionEvent.ACTION_MASK;
 		sb.append("event ACTION_").append(names[actionCode]);
 		if (actionCode == MotionEvent.ACTION_POINTER_DOWN || actionCode == MotionEvent.ACTION_POINTER_UP) {
-			sb.append("(pid ").append(action >> MotionEvent.ACTION_POINTER_ID_SHIFT);
+			sb.append("(pid ").append(action >> MotionEvent.ACTION_POINTER_INDEX_SHIFT);
 			sb.append(")");
 		}
 		sb.append("[");

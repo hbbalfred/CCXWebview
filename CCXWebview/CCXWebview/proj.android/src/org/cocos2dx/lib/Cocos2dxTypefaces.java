@@ -1,5 +1,6 @@
 /****************************************************************************
-Copyright (c) 2010-2011 cocos2d-x.org
+Copyright (c) 2010-2012 cocos2d-x.org
+Copyright (c) 2013-2014 Chukong Technologies Inc.
 
 http://www.cocos2d-x.org
 
@@ -57,7 +58,15 @@ public class Cocos2dxTypefaces {
 
 	public static synchronized Typeface get(final Context pContext, final String pAssetName) {
 		if (!Cocos2dxTypefaces.sTypefaceCache.containsKey(pAssetName)) {
-			final Typeface typeface = Typeface.createFromAsset(pContext.getAssets(), pAssetName);
+			Typeface typeface = null;
+			if (pAssetName.startsWith("/"))
+			{
+				typeface = Typeface.createFromFile(pAssetName);
+			}
+			else
+			{
+				typeface = Typeface.createFromAsset(pContext.getAssets(), pAssetName);
+			}
 			Cocos2dxTypefaces.sTypefaceCache.put(pAssetName, typeface);
 		}
 

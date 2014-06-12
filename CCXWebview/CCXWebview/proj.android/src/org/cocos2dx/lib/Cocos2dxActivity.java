@@ -1,5 +1,5 @@
 /****************************************************************************
-Copyright (c) 2010-2011 cocos2d-x.org
+Copyright (c) 2010-2013 cocos2d-x.org
 
 http://www.cocos2d-x.org
 
@@ -26,17 +26,24 @@ package org.cocos2dx.lib;
 import org.cocos2dx.lib.Cocos2dxHelper.Cocos2dxHelperListener;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
 import android.view.ViewGroup;
+import android.util.Log;
 import android.widget.FrameLayout;
+import android.preference.PreferenceManager.OnActivityResultListener;
 
 public abstract class Cocos2dxActivity extends Activity implements Cocos2dxHelperListener {
 	// ===========================================================
 	// Constants
 	// ===========================================================
 
-	private static final String TAG = Cocos2dxActivity.class.getSimpleName();
+	private final static String TAG = Cocos2dxActivity.class.getSimpleName();
 
 	// ===========================================================
 	// Fields
@@ -44,22 +51,45 @@ public abstract class Cocos2dxActivity extends Activity implements Cocos2dxHelpe
 	
 	private Cocos2dxGLSurfaceView mGLSurfaceView;
 	private Cocos2dxHandler mHandler;
-
+	private static Cocos2dxActivity sContext = null;
+	private Cocos2dxVideoHelper mVideoHelper = null;
+	
+	public static Context getContext() {
+		return sContext;
+	}
+	
 	// ===========================================================
 	// Constructors
 	// ===========================================================
-
+	
 	@Override
 	protected void onCreate(final Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		
+
+		try {
+			ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
+			Bundle bundle = ai.metaData;
+			try {
+        		String libName = bundle.getString("android.app.lib_name");
+        		System.loadLibrary(libName);
+			} catch (Exception e) {
+		 		// ERROR
+			}
+		} catch (PackageManager.NameNotFoundException e) {
+		 	// ERROR
+		}
+
+		sContext = this;
     	this.mHandler = new Cocos2dxHandler(this);
-
-    	this.mGLSurfaceView = onCreateView();
-
-		Cocos2dxHelper.init(this, this);
+    	
+    	Cocos2dxHelper.init(this);
+    	
+    	this.init();
+    	if (mVideoHelper == null) {
+    		mVideoHelper = new Cocos2dxVideoHelper(this, mFrameLayout);
+		}
 	}
-
+	
 	// ===========================================================
 	// Getter & Setter
 	// ===========================================================
@@ -104,45 +134,74 @@ public abstract class Cocos2dxActivity extends Activity implements Cocos2dxHelpe
 	public void runOnGLThread(final Runnable pRunnable) {
 		this.mGLSurfaceView.queueEvent(pRunnable);
 	}
+	
+	@Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data)
+    {
+        for (OnActivityResultListener listener : Cocos2dxHelper.getOnActivityResultListeners()) {
+            listener.onActivityResult(requestCode, resultCode, data);
+        }
 
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+
+	protected FrameLayout mFrameLayout = null;
 	// ===========================================================
 	// Methods
 	// ===========================================================
-	
-    public Cocos2dxGLSurfaceView onCreateView() {
-    	// Init handler
-    			
+	public void init() {
+		
     	// FrameLayout
         ViewGroup.LayoutParams framelayout_params =
-            new ViewGroup.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT,
-                                       ViewGroup.LayoutParams.FILL_PARENT);
-        FrameLayout framelayout = new FrameLayout(this);
-        framelayout.setLayoutParams(framelayout_params);
+            new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                                       ViewGroup.LayoutParams.MATCH_PARENT);
+        mFrameLayout = new FrameLayout(this);
+        mFrameLayout.setLayoutParams(framelayout_params);
 
         // Cocos2dxEditText layout
         ViewGroup.LayoutParams edittext_layout_params =
-            new ViewGroup.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT,
+            new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                                        ViewGroup.LayoutParams.WRAP_CONTENT);
         Cocos2dxEditText edittext = new Cocos2dxEditText(this);
         edittext.setLayoutParams(edittext_layout_params);
 
         // ...add to FrameLayout
-        framelayout.addView(edittext);
+        mFrameLayout.addView(edittext);
 
         // Cocos2dxGLSurfaceView
-        Cocos2dxGLSurfaceView gLSurfaceView = new Cocos2dxGLSurfaceView(this);
+        this.mGLSurfaceView = this.onCreateView();
 
         // ...add to FrameLayout
-        framelayout.addView(gLSurfaceView);
+        mFrameLayout.addView(this.mGLSurfaceView);
 
-        gLSurfaceView.setCocos2dxRenderer(new Cocos2dxRenderer());
-        gLSurfaceView.setCocos2dxEditText(edittext);
+        // Switch to supported OpenGL (ARGB888) mode on emulator
+        if (isAndroidEmulator())
+           this.mGLSurfaceView.setEGLConfigChooser(8 , 8, 8, 8, 16, 0);
+
+        this.mGLSurfaceView.setCocos2dxRenderer(new Cocos2dxRenderer());
+        this.mGLSurfaceView.setCocos2dxEditText(edittext);
 
         // Set framelayout as the content view
-		setContentView(framelayout);
-		
-		return gLSurfaceView;
+		setContentView(mFrameLayout);
+	}
+	
+    public Cocos2dxGLSurfaceView onCreateView() {
+    	return new Cocos2dxGLSurfaceView(this);
     }
+
+   private final static boolean isAndroidEmulator() {
+      String model = Build.MODEL;
+      Log.d(TAG, "model=" + model);
+      String product = Build.PRODUCT;
+      Log.d(TAG, "product=" + product);
+      boolean isEmulator = false;
+      if (product != null) {
+         isEmulator = product.equals("sdk") || product.contains("_sdk") || product.contains("sdk_");
+      }
+      Log.d(TAG, "isEmulator=" + isEmulator);
+      return isEmulator;
+   }
 
 	// ===========================================================
 	// Inner and Anonymous Classes

@@ -7,13 +7,14 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "CCEAGLView.h"
 
 @interface ZYWebView_iOS : NSObject <UIWebViewDelegate>
 {
     UIWebView* m_webview;
 }
 
-- (void)showWebView_x:(float)x y:(float)y width:(float) widht height:(float)height;
+- (void)showWebView_x:(float)x y:(float)y width:(float)widht height:(float)height eaglview:(CCEAGLView*)eaglview;
 
 - (void)updateURL:(const char*)url;
 

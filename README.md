@@ -8,7 +8,7 @@ This project is under MIT License.
 
 ##Main Info
 
-Base cocos2d-x version: 2.0.4
+Base cocos2d-x version: 3.0.1alpha
 
 ##Usage
 
